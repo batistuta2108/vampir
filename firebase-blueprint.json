@@ -1,0 +1,181 @@
+{
+  "entities": {
+    "WebProject": {
+      "title": "WebProject",
+      "description": "A generated or edited full-stack static web project (HTML, CSS, JS) owned by a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated owner UID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Project title."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short summary of the website."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["landing", "ecommerce", "saas", "portfolio", "dashboard", "restaurant", "custom"],
+          "description": "Website category."
+        },
+        "htmlCode": {
+          "type": "string",
+          "description": "HTML document markup."
+        },
+        "cssCode": {
+          "type": "string",
+          "description": "CSS stylesheet rules."
+        },
+        "jsCode": {
+          "type": "string",
+          "description": "Client-side JavaScript logic."
+        },
+        "versionCount": {
+          "type": "integer",
+          "description": "Current revision counter."
+        },
+        "isFavorite": {
+          "type": "boolean",
+          "description": "Whether the user pinned this project."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation (submit FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update (submit FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "description",
+        "category",
+        "htmlCode",
+        "cssCode",
+        "jsCode",
+        "versionCount",
+        "isFavorite",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudioMessage": {
+      "title": "StudioMessage",
+      "description": "A chat prompt or AI build response inside a project studio.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated owner UID."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Parent project ID."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "description": "Message author role."
+        },
+        "content": {
+          "type": "string",
+          "description": "Message text content."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short build changelog summary."
+        },
+        "versionTag": {
+          "type": "integer",
+          "description": "Associated project version number."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation (submit FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "projectId",
+        "role",
+        "content",
+        "summary",
+        "versionTag",
+        "createdAt"
+      ]
+    },
+    "ProjectVersion": {
+      "title": "ProjectVersion",
+      "description": "An immutable code snapshot of a website revision.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated owner UID."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Parent project ID."
+        },
+        "versionNumber": {
+          "type": "integer",
+          "description": "Sequential version number."
+        },
+        "promptLabel": {
+          "type": "string",
+          "description": "Short label describing the change."
+        },
+        "htmlCode": {
+          "type": "string",
+          "description": "Snapshot HTML."
+        },
+        "cssCode": {
+          "type": "string",
+          "description": "Snapshot CSS."
+        },
+        "jsCode": {
+          "type": "string",
+          "description": "Snapshot JavaScript."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation (submit FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "projectId",
+        "versionNumber",
+        "promptLabel",
+        "htmlCode",
+        "cssCode",
+        "jsCode",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/WebProject" },
+      "description": "User-owned web studio projects."
+    },
+    "/users/{userId}/projects/{projectId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/StudioMessage" },
+      "description": "Conversational AI studio history per project."
+    },
+    "/users/{userId}/projects/{projectId}/versions/{versionId}": {
+      "schema": { "$ref": "#/entities/ProjectVersion" },
+      "description": "Version snapshots per project for instant rollback."
+    }
+  }
+}

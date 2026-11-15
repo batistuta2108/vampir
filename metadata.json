@@ -1,0 +1,6 @@
+{
+  "name": "WebForge Pro",
+  "description": "Studio professionnel de création de sites web complets par IA avec aperçu WebView multi-écrans, éditeur de code multi-fichiers, historique de versions et sauvegarde cloud.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

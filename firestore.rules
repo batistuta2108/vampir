@@ -1,0 +1,145 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Domain Validation Helpers ---
+    function isValidProject(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.description is string && data.description.size() <= 500 &&
+             data.category in ['landing', 'ecommerce', 'saas', 'portfolio', 'dashboard', 'restaurant', 'custom'] &&
+             data.htmlCode is string && data.htmlCode.size() <= 400000 &&
+             data.cssCode is string && data.cssCode.size() <= 200000 &&
+             data.jsCode is string && data.jsCode.size() <= 200000 &&
+             data.versionCount is int && data.versionCount >= 1 && data.versionCount <= 10000 &&
+             data.isFavorite is bool;
+    }
+
+    function isValidMessage(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.role in ['user', 'assistant'] &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 20000 &&
+             data.summary is string && data.summary.size() <= 1000 &&
+             data.versionTag is int && data.versionTag >= 1 && data.versionTag <= 10000;
+    }
+
+    function isValidVersion(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.versionNumber is int && data.versionNumber >= 1 && data.versionNumber <= 10000 &&
+             data.promptLabel is string && data.promptLabel.size() >= 1 && data.promptLabel.size() <= 500 &&
+             data.htmlCode is string && data.htmlCode.size() <= 400000 &&
+             data.cssCode is string && data.cssCode.size() <= 200000 &&
+             data.jsCode is string && data.jsCode.size() <= 200000;
+    }
+
+    // --- User-Scoped Projects ---
+    match /users/{userId}/projects/{projectId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(projectId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(projectId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'title', 'description', 'category',
+                         'htmlCode', 'cssCode', 'jsCode', 'versionCount',
+                         'isFavorite', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'title', 'description', 'category',
+                         'htmlCode', 'cssCode', 'jsCode', 'versionCount',
+                         'isFavorite', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidProject(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(projectId) &&
+                       isValidProject(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'description', 'category',
+                         'htmlCode', 'cssCode', 'jsCode',
+                         'versionCount', 'isFavorite', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(projectId);
+
+      // --- Conversational Studio Messages ---
+      match /messages/{messageId} {
+        allow list: if isOwner(userId) && isValidId(projectId);
+        allow get: if isOwner(userId) && isValidId(projectId) && isValidId(messageId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'projectId', 'role', 'content', 'summary', 'versionTag', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'projectId', 'role', 'content', 'summary', 'versionTag', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidMessage(incoming(), userId, projectId) &&
+                         existsAfter(/databases/$(database)/documents/users/$(userId)/projects/$(projectId));
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(projectId) && isValidId(messageId);
+      }
+
+      // --- Project Revision Snapshots ---
+      match /versions/{versionId} {
+        allow list: if isOwner(userId) && isValidId(projectId);
+        allow get: if isOwner(userId) && isValidId(projectId) && isValidId(versionId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         isValidId(versionId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'projectId', 'versionNumber', 'promptLabel',
+                           'htmlCode', 'cssCode', 'jsCode', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'projectId', 'versionNumber', 'promptLabel',
+                           'htmlCode', 'cssCode', 'jsCode', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         isValidVersion(incoming(), userId, projectId) &&
+                         existsAfter(/databases/$(database)/documents/users/$(userId)/projects/$(projectId));
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(projectId) && isValidId(versionId);
+      }
+    }
+  }
+}
